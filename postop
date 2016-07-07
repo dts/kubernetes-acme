@@ -1,0 +1,16 @@
+#!/bin/sh
+
+if [[ "$1" == "live-updated" ]]
+then
+echo "LIVE UPDATED!"
+   for loc in $( ls /data/live )
+   do
+     cat /data/live/$loc/fullchain /data/live/$loc/privkey > /tmp/$loc.pem
+   done
+
+   kubectl delete secrets ssl-certs
+   ls /tmp/*.pem | awk '{ print "--from-file="$1 }' | xargs kubectl create secret generic ssl-certs
+   kubectl delete pod $(kubectl get pod | grep service-loadbalancer | awk '{print $1 }')      
+else
+echo "Not doing shiit"
+fi

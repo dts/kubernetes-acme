@@ -1,0 +1,48 @@
+FROM        alpine:3.2
+MAINTAINER  Steve Durrheimer <s.durrheimer@gmail.com>
+
+ENV GLIBC_VERSION="2.23-r1"
+
+# https://github.com/gliderlabs/docker-alpine/issues/11
+RUN \
+    apk add --update -t deps wget ca-certificates \
+    && cd /tmp \
+    && wget https://github.com/andyshinn/alpine-pkg-glibc/releases/download/${GLIBC_VERSION}/glibc-${GLIBC_VERSION}.apk \
+    && wget https://github.com/andyshinn/alpine-pkg-glibc/releases/download/${GLIBC_VERSION}/glibc-bin-${GLIBC_VERSION}.apk \
+    && apk add --allow-untrusted glibc-${GLIBC_VERSION}.apk glibc-bin-${GLIBC_VERSION}.apk \
+    && /usr/glibc-compat/sbin/ldconfig /lib /usr/glibc-compat/lib/ \
+    && echo 'hosts: files mdns4_minimal [NOTFOUND=return] dns mdns4' >> /etc/nsswitch.conf \
+    && apk del --purge deps \
+    && rm /tmp/* /var/cache/apk/*
+
+RUN apk add --update -t deps curl ca-certificates \
+ && curl -L https://storage.googleapis.com/kubernetes-release/release/v1.2.4/bin/linux/amd64/kubectl -o /usr/local/bin/kubectl \
+ && chmod +x /usr/local/bin/kubectl \
+ && apk del --purge deps \
+ && rm /var/cache/apk/*
+
+MAINTAINER Hubert Dąbrowski <h@dabrow.org>
+
+ENV ACME_STATE_DIR /data
+ENV VERSION 0.0.51
+
+ADD https://raw.githubusercontent.com/bagder/ca-bundle/master/ca-bundle.crt /etc/ssl/ca-bundle.pem
+ADD https://github.com/hlandau/acme/releases/download/v${VERSION}/acmetool-v${VERSION}-linux_amd64.tar.gz /opt/
+ADD acmetool-script.sh /acmetool-script.sh
+
+RUN tar -zxf /opt/acmetool-v${VERSION}-linux_amd64.tar.gz -C /opt && \
+    rm /opt/acmetool-v${VERSION}-linux_amd64.tar.gz && \
+        mv /opt/acmetool-v${VERSION}-linux_amd64 /opt/acmetool
+
+RUN mkdir -p /usr/lib/acme/hooks
+COPY postop /usr/lib/acme/hooks/postop
+RUN chmod u+x /usr/lib/acme/hooks/postop
+ADD acme-config /usr/acme-config
+
+VOLUME ["/data"]
+
+ENTRYPOINT ["/bin/sh"]
+CMD ["/acmetool-script.sh"]
+
+# ENTRYPOINT ["/opt/acmetool/bin/acmetool"]
+# CMD ["--help"]

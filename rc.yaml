@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: acme-mgr
+spec:
+  replicas: 1
+  selector:
+    app: acme-mgr
+  template:
+    metadata:
+      name: acme-mgr
+      labels:
+        app: acme-mgr
+    spec:
+      volumes:
+        - name: acme-certs
+          gcePersistentDisk:
+            pdName: acme-data
+            fsType: ext4
+      containers:
+        - name: acmetool
+          image: thehumaneffort/acmetool:latest
+          volumeMounts:
+            - mountPath: /data
+              name: acme-certs
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "10m"
+            limits:
+              memory: "128Mi"
+              cpu: "50m"
+        - name: nginx
+          image: thehumaneffort/acme-nginx:latest
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - mountPath: /dev/certs/
+              name: acme-certs
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "10m"
+            limits:
+              memory: "128Mi"
+              cpu: "40m"
